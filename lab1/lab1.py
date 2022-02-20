@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 class Solution:
     def __init__(self) -> None:
-        file = r"C:\Users\Checkout\Documents\CMPE 255\cmpe255-spring22\Lab 1\data\chipotle.tsv"
+        file = 'data/chipotle.tsv'
         self.chipo = pd.read_csv(file, sep='\t')
     
     def top_x(self, count) -> None:
