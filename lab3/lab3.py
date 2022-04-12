@@ -1,118 +1,66 @@
-import pandas as pd
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib import pyplot as plt
-
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn import metrics
-from sklearn.feature_selection import RFE
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import SVC
+from sklearn.metrics import precision_score, recall_score, confusion_matrix, plot_confusion_matrix, accuracy_score
 
-        
-class DiabetesClassifier:
-    def __init__(self) -> None:
-        col_names = ['pregnant', 'glucose', 'bp', 'skin', 'insulin', 'bmi', 'pedigree', 'age', 'label']
-        self.pima = pd.read_csv('diabetes.csv', header=0, names=col_names, usecols=col_names)
-        # print(self.pima.head())
-        self.X_test = None
-        self.y_test = None
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+np.random.seed(0)
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+data = pd.read_csv("fetal_health.csv")
+# data.head()
+# data.describe()
 
+# TODO: 1. Check the distribution [Tagged as 1 (Normal), 2 (Suspect) and 3 (Pathological)] of target label 'fetal_health' using a SNS Countplot
+#
 
-    def train(self,x):
-        # split X and y into training and testing sets
-        X, y = self.feature_def(x)
-        X_train, self.X_test, y_train, self.y_test = train_test_split(X, y, random_state=12345)
-        # train a logistic regression model on the training set
-        logreg = LogisticRegression(solver='lbfgs', max_iter=10000)
-        logreg.fit(X_train, y_train)
-        return logreg
-    
+# TODO: 2. Find the top 3 input features based on the correlation matrix by plotting a SNS heatmap.
+#
 
-    def predict(self, x):
-        model = self.train(x)
-        y_pred_class = model.predict(self.X_test)
-        return y_pred_class
+X = data.drop(['fetal_health'], axis=1)
+y = data["fetal_health"]
+
+train_size, num_features = X.shape
+num_labels = 3
+
+# TODO: 3. Use Scikit-Learn Standard Scaler to normalize the input features.
 
 
-    def calculate_accuracy(self, result):
-        return metrics.accuracy_score(self.y_test, result)
+# Split the dataset into a training set (80%) and a test set (20%) using train_test_split() from sklearn library.
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=109)
 
+# TODO: 4. Use Scikit-Learn's LogisticRegression 
+# set these three parameters to enable the Softmax Regression algorithm:
+#   multi_class="multinomial"
+#   solver="lbfgs"
+#   C=10
+# https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
 
-    def examine(self):
-        dist = self.y_test.value_counts()
-        print(dist)
-        percent_of_ones = self.y_test.mean()
-        percent_of_zeros = 1 - self.y_test.mean()
-        return self.y_test.mean()
-    
+print('| Experiment | Accuracy | Recall | Precision | Confusion matrix |')
+print('|------------|----------|----------|----------|---------|')
 
-    def confusion_matrix(self, result):
-        return metrics.confusion_matrix(self.y_test, result)
+for i in [6,7,8]:
+    clf = SVC(C=i, kernel="linear")
+    clf.fit(X_train, y_train)
 
+    y_pred = clf.predict(X_test)
 
-    def addBP(self):
-        colBP = pd.Series(
-            ["low", "high"], dtype="category")
-        self.pima["colBP"] = colBP
+    # print(y_test, y_pred)
+    # TODO: 5. Compute these scores
+    accuracy = accuracy_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred, average="macro")
+    precision = precision_score(y_test, y_pred, average="macro")
+    cf_matrix = confusion_matrix(y_test, y_pred)
+    plot_confusion_matrix(clf, X_test, y_test)
+    plt.show()
 
-        self.pima.loc[self.pima["bp"] < 50, "colBP"] = colBP[0]
-        self.pima.loc[self.pima["bp"] > 50, "colBP"] = colBP[1]
-
-
-    def addGlucose(self):
-        colGlucose = pd.Series(
-            ["normal", "prediabetes", "diabetic"], dtype="category")
-        self.pima["colGlucose"] = colGlucose
-
-        self.pima.loc[self.pima["glucose"] < 140, "colGlucose"] = colGlucose[0]
-        self.pima.loc[((self.pima["glucose"] > 140) & (
-            self.pima["glucose"] <= 200)), "colGlucose"] = colGlucose[1]
-        self.pima.loc[self.pima["glucose"] > 200, "colGlucose"] = colGlucose[2]
-
-
-    def addInsulin(self, row):
-        if row["insulin"] >= 16 and row["insulin"] <= 166:
-            return "Normal"
-        else:
-            return "Abnormal"
-
-    
-    def feature_select(self):
-        self.addGlucose()
-        self.addBP()
-        self.pima = self.pima.assign(
-            colInsulin=self.pima.apply(self.addInsulin, axis=1))
-        self.pima = pd.get_dummies(
-            self.pima, columns=["colGlucose", "colInsulin", "colBP"])
-
-
-    def feature_def(self,x):
-        model = LogisticRegression(solver='lbfgs', max_iter=10000,random_state=12345)
-
-        self.pima = self.pima[['colGlucose_normal', 'colGlucose_prediabetes','colInsulin_Normal','colInsulin_Abnormal', 'colBP_low','colBP_high',
-                                 'pregnant', 'pedigree', 'insulin', 'skin', 'bp', 'age', 'label']]
-        array = self.pima.values
-        
-        X = array[:, 0:12]
-        y = array[:, 12]
-        # print(x)
-        rfe = RFE(model, n_features_to_select=x)
-        fit = rfe.fit(X, y)
-        reduced_dataset = self.pima.iloc[:, :-1].loc[:, fit.support_]
-        return reduced_dataset, self.pima.label
-    
-
-if __name__ == "__main__":
-    classifer = DiabetesClassifier()
-    # print(classifer.pima)
-    classifer.feature_select()
-    print('| Experiment | Accuracy | Confusion matrix | Comment |')
-    print('|------------|----------|------------------|---------|')
-    for x in [6,7,8] :
-        classifer.feature_def(x)
-        result = classifer.predict(x)
-        # print(f"Predicition={result}")
-        score = classifer.calculate_accuracy(result)
-        # print(f"score={score}")
-        con_matrix = classifer.confusion_matrix(result)
-        # print(f"confusion_matrix=${con_matrix}")
-        print(f"|Solution{x-5}   |{score}|{con_matrix}|")
+    print(f"|Solution{i-5}   | {accuracy} | {recall} | {precision} | {cf_matrix} |")
+    # print("Accuracy    : ", accuracy)
+    # print("Recall      : ", recall)
+    # print("Precision   : ", precision)
+    # print("Confusion Matrix: ", cf_matrix)
